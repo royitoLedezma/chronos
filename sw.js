@@ -1,6 +1,6 @@
 // Club Chronos · permite abrir la app sin internet.
 // Los datos de la hoja NO pasan por aquí: la app los guarda en el celular y los envía cuando hay conexión.
-var VERSION = 'chronos-v3';
+var VERSION = 'chronos-v5';
 var ARCHIVOS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
