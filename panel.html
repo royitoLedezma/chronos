@@ -221,7 +221,7 @@ function pintarLogin(){
   root.innerHTML='<div class="login"><form class="box" id="fl"><span class="eyebrow">Club Chronos</span><h1>Panel del entrenador</h1>'+
     '<p class="muted" style="margin:0">Escribe la clave que definiste en la hoja (Chronos → Clave del panel del entrenador).</p>'+
     '<input id="clave" type="password" autocomplete="current-password" placeholder="Clave" aria-label="Clave del panel" required>'+
-    '<button class="btn" type="submit">'+(S.cargando?'Entrando…':'Entrar')+'</button><div class="err" role="alert">'+esc(S.error)+'</div></form></div>';
+    '<button class="btn" type="submit">'+(S.cargando?'Entrando…':'Entrar')+'</button><div class="err" role="alert">'+esc(S.error)+'</div><a href="./" class="muted" style="font-size:13px">← Volver a la app</a></form></div>';
   document.getElementById('fl').addEventListener('submit',function(e){e.preventDefault();var c=document.getElementById('clave').value.trim();if(c)pedir(c);});
   setTimeout(function(){var i=document.getElementById('clave');if(i)i.focus();},50);
 }
@@ -281,7 +281,7 @@ function pintarCabecera(){
   h.querySelector('.tools').innerHTML='<span class="muted" role="status">'+(S.cargando?'Actualizando…':S.error?esc(S.error):'Actualizado '+cuando)+'</span>'+
     '<button class="btn ghost" data-act="actualizar"'+(S.cargando?' disabled':'')+'>Actualizar</button>'+
     '<button class="icon" data-act="tema" aria-label="'+(oscuro()?'Modo día':'Modo noche')+'">'+(oscuro()?'☀':'☾')+'</button>'+
-    '<button class="btn ghost" data-act="salir">Salir</button>';
+    '<button class="btn ghost" data-act="app">← App</button><button class="btn ghost" data-act="salir">Salir</button>';
 }
 var TABS=[['resumen','Resumen'],['macro','Macrociclo'],['semana','Semana'],['progreso','Progreso'],['forma','Forma y fatiga'],['tests','Tests y perfil']];
 function pintar(){
@@ -612,7 +612,8 @@ document.addEventListener('click',function(e){var b=e.target.closest('[data-act]
   if(a==='atleta'){S.atleta=b.dataset.n;store('chronos-panel-atleta',S.atleta);S.ej=null;S.sem=null;preparar();pintar();return;}
   if(a==='actualizar'){var c=store('chronos-panel-clave');if(c)pedir(c);return;}
   if(a==='tema'){var d=oscuro();document.documentElement.setAttribute('data-theme',d?'light':'dark');store('chronos-tema',d?'light':'dark');pintar();return;}
-  if(a==='salir'){store('chronos-panel-clave',null);store('chronos-panel-datos',null);S.datos=null;S.error='';pintarLogin();return;}
+  if(a==='salir'){store('chronos-panel-clave',null);store('chronos-panel-datos',null);location.href='./';return;}
+  if(a==='app'){location.href='./';return;}
   if(a==='verEj'){S.ej=b.dataset.n;pintar();scrollTo({top:0,behavior:'smooth'});return;}
 });
 document.addEventListener('change',function(e){var t=e.target;if(t.dataset.act==='ej'){S.ej=t.value;pintar();}if(t.dataset.act==='sem'){S.sem=t.value;pintar();}});

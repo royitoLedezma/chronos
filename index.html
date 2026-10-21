@@ -97,6 +97,11 @@ h1,h2{margin:0;font-weight:500}
 .row .nm{font-family:var(--serif);font-size:23px;font-weight:600;line-height:1.1}
 .row .fs{font-size:13px;color:var(--muted);font-weight:500}
 .row .ico{color:var(--line2)}
+.sec{font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--bronzeT);margin:0}
+.row.coach .mono{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.coachf{display:flex;flex-direction:column;gap:14px;margin-top:22px}
+.coachf input{font:inherit;font-size:18px;height:56px;border-radius:16px;border:1px solid var(--line2);background:var(--paper);color:var(--ink);text-align:center;padding:0 16px}
+.coachf input:focus{outline:2px solid var(--bronze);outline-offset:1px}
 .empty{padding:28px 4px;color:var(--muted);line-height:1.6}
 
 /* ===== PIN ===== */
@@ -345,7 +350,7 @@ var API = 'https://script.google.com/macros/s/AKfycbxtr5O0mWeqU22FgZxBELldzlQ9qg
 
 // ===== Estado =====
 // hecho / abierto / anim son solo de pantalla (no se envían a la hoja).
-var S = { screen: 'cargando', atletas: [], atleta: null, pin: '', error: '', sesion: null, dia: 0, ov: {}, omit: {}, lastre: {}, paso: {}, hecho: {}, t: {}, abierto: null, guardando: false, resumen: null,
+var S = { entrenador: (function () { try { return localStorage.getItem('chronos-entrenador') || ''; } catch (e) { return ''; } })(), screen: 'cargando', atletas: [], atleta: null, pin: '', error: '', sesion: null, dia: 0, ov: {}, omit: {}, lastre: {}, paso: {}, hecho: {}, t: {}, abierto: null, guardando: false, resumen: null,
   tmp: {}, cierre: null, editCI: null, recargando: false, pendRes: null };
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
 if (store('chronos-tema') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
@@ -575,7 +580,7 @@ function render(forzar) {
   var sc = app.querySelector('.scroll'), top = sc ? sc.scrollTop : 0;
   var fa = document.activeElement, foco = null;
   if (fa && fa.dataset && fa.dataset.act) foco = '[data-act="' + fa.dataset.act + '"]' + ['key', 'k', 'd', 'i', 'p', 'f', 'v'].map(function (n) { return fa.dataset[n] != null ? '[data-' + n + '="' + fa.dataset[n] + '"]' : ''; }).join('');
-  app.innerHTML = ({ cargando: vCargando, nombre: vNombre, pin: vPin, sesion: vSesion, listo: vListo, error: vError })[S.screen]();
+  app.innerHTML = ({ cargando: vCargando, nombre: vNombre, pin: vPin, coach: vCoach, sesion: vSesion, listo: vListo, error: vError })[S.screen]();
   var sc2 = app.querySelector('.scroll'); if (sc2) sc2.scrollTop = top;
   if (foco) { var f = app.querySelector(foco); if (f) try { f.focus({ preventScroll: true }); } catch (e) {} }
   var tira = app.querySelector('.days'), on = tira && tira.querySelector('.on');
@@ -593,9 +598,34 @@ function vNombre() {
     return '<button class="row" data-act="elegir" data-i="' + i + '"><span class="mono">' + esc(a.nombre.charAt(0)) + '</span><span class="who"><span class="nm">' + esc(a.nombre) + '</span>' + (a.fase ? '<span class="fs">' + esc(a.fase) + '</span>' : '') + '</span>' + I.next + '</button>';
   }).join('');
   if (!rows) rows = '<div class="empty">Todavía no hay atletas en la hoja. Pide a tu entrenador que te agregue.</div>';
-  return '<div class="screen"><div class="home"><div class="topbar">' + (S.sinRed ? '<span class="kicker off">' + I.off + 'Sin conexión</span>' : '<span></span>') + temaBtn() + '</div>' + logo() + avisoCola() +
+  var coach = S.entrenador ? '<div><h2 class="sec">Entrenador</h2><div class="list" style="margin-top:8px"><button class="row coach" data-act="coach"><span class="mono">' + esc(S.entrenador.charAt(0)) + '</span><span class="who"><span class="nm">' + esc(S.entrenador) + '</span><span class="fs">Panel del entrenador</span></span>' + I.next + '</button></div></div>' : '';
+  return '<div class="screen"><div class="home"><div class="topbar">' + (S.sinRed ? '<span class="kicker off">' + I.off + 'Sin conexión</span>' : '<span></span>') + temaBtn() + '</div>' + logo() + avisoCola() + coach +
     '<div><h1>¿Quién entrena hoy?</h1><div class="list">' + rows + '</div></div></div></div>';
 }
+// ===== Entrenador: clave → panel.html =====
+function vCoach() {
+  return '<div class="screen pinscr"><div class="topbar"><button class="iconbtn" style="border:0;margin-left:-10px" data-act="volver" aria-label="Volver a la lista">' + I.back + '</button></div>' +
+    '<div class="hello"><h1>' + esc(S.entrenador) + '</h1><div class="sub">Clave del panel del entrenador</div></div>' +
+    '<form class="coachf" id="fcoach"><input id="clavec" type="password" autocomplete="current-password" placeholder="Clave" aria-label="Clave del panel" required>' +
+    '<div class="err" role="alert">' + esc(S.error) + '</div>' +
+    '<button class="primary" type="submit"' + (S.coachCargando ? ' disabled' : '') + '>' + (S.coachCargando ? dial().replace('class="dial"', 'class="dial" style="width:22px;height:22px;color:currentColor"') + 'Entrando…' : 'Entrar al panel') + '</button></form></div>';
+}
+function abrirPanel() { location.href = 'panel.html'; }
+function entrarCoach(clave) {
+  S.coachCargando = true; S.error = ''; render(true);
+  api({ accion: 'panel', clave: clave }).then(function (j) {
+    store('chronos-panel-clave', clave); store('chronos-panel-datos', JSON.stringify(j));
+    S.coachCargando = false; abrirPanel();
+  }).catch(function (e) {
+    S.coachCargando = false; S.error = e.red ? 'Sin conexión. Necesitas internet para entrar al panel.' : e.message; render(true);
+    var i = document.getElementById('clavec'); if (i) i.focus();
+  });
+}
+document.addEventListener('submit', function (ev) {
+  if (ev.target.id !== 'fcoach') return;
+  ev.preventDefault();
+  var c = document.getElementById('clavec').value.trim(); if (c && !S.coachCargando) entrarCoach(c);
+});
 function vPin() {
   var dots = [0, 1, 2, 3].map(function (i) { return '<div class="dot' + (i < S.pin.length ? ' on' : '') + '"></div>'; }).join('');
   var keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map(function (k) {
@@ -794,6 +824,7 @@ function refrescarAtletas() {
     if (j.error) throw new Error(j.error);
     var antes = store('chronos-atletas'), nuevo = JSON.stringify(j.atletas || []);
     S.sinRed = false; S.atletas = j.atletas || []; store('chronos-atletas', nuevo);
+    var ent = j.entrenador || ''; if (ent !== (S.entrenador || '')) { S.entrenador = ent; store('chronos-entrenador', ent || null); if (S.screen === 'nombre') render(); }
     enviarCola();
     if (S.atleta && S.screen !== 'nombre' && !S.atletas.some(function (a) { return a.nombre === S.atleta; })) {   // lo quitaron o desactivaron
       store('chronos-atleta', null); store('chronos-pin', null); S.atleta = null; S.sesion = null; S.screen = 'nombre'; render(); return;
@@ -813,6 +844,7 @@ function cargarAtletas() {
     if (j.error) throw new Error(j.error);
     S.sinRed = false;
     S.atletas = j.atletas || [];
+    S.entrenador = j.entrenador || ''; store('chronos-entrenador', S.entrenador || null);
     store('chronos-atletas', JSON.stringify(S.atletas));
     enviarCola();
     if (!irAlGuardado()) { S.screen = 'nombre'; render(); }
@@ -1097,6 +1129,10 @@ document.addEventListener('click', function (ev) {
   if (a === 'enviar') { b.textContent = 'Enviando…'; enviarCola(); return; }
   if (a === 'elegir') { S.atleta = S.atletas[+b.dataset.i].nombre; S.pin = ''; S.error = ''; S.screen = 'pin'; return render(); }
   if (a === 'volver') { S.screen = 'nombre'; S.pin = ''; S.error = ''; return render(); }
+  if (a === 'coach') {
+    if (store('chronos-panel-clave') && store('chronos-panel-datos')) return abrirPanel();     // ya entró antes en este celular
+    S.screen = 'coach'; S.error = ''; render(); setTimeout(function () { var i = document.getElementById('clavec'); if (i) i.focus(); }, 60); return;
+  }
   if (a === 'tecla') {
     var k = b.dataset.k;
     if (S.pin.length === 4) return;

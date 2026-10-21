@@ -1,7 +1,7 @@
 // Club Chronos · abre la app al instante (también sin internet).
 // Los datos de la hoja NO pasan por aquí: la app los guarda en el celular y los envía cuando hay conexión.
-var VERSION = 'chronos-v6';
-var ARCHIVOS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+var VERSION = 'chronos-v7';
+var ARCHIVOS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'panel.html'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(ARCHIVOS); }).then(function () { return self.skipWaiting(); }));
