@@ -46,7 +46,6 @@ button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;touch-
 button:focus-visible{outline:2px solid var(--bronze);outline-offset:2px}
 h1,h2{margin:0;font-weight:500}
 .serif{font-family:var(--serif);font-feature-settings:"lnum" 1,"tnum" 1}
-.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #app{max-width:520px;margin:0 auto;height:100%;height:100dvh;display:flex;flex-direction:column}
 .screen{flex:1;display:flex;flex-direction:column;min-height:0}
 .ico{width:20px;height:20px;flex-shrink:0}
@@ -140,7 +139,6 @@ h1,h2{margin:0;font-weight:500}
 .days button.on{background:var(--paper);border-color:var(--line2);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .days .dn{font-size:14px;font-weight:700;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
 .days .dn em{font-style:normal;font-weight:600;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.days .df{font-size:11px;font-weight:600}
 .days .hoy{align-self:center}
 .days .df,.seg .df{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:4px;white-space:nowrap}
 .df .ico{width:13px;height:13px;color:var(--bronzeT)}
@@ -239,7 +237,7 @@ h1,h2{margin:0;font-weight:500}
 .rt.bad input{border-style:dashed;border-color:var(--dn)}
 .cmp{min-height:17px;font-size:12px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;gap:3px}
 .cmp .ico{width:14px;height:14px}
-.cmp.up,.chg.up{color:var(--up)}
+.cmp.up{color:var(--up)}
 .cmp.dn{color:var(--dn)}
 .cmp.ok{color:var(--bronzeT)}
 .cmp.bad{color:var(--dn);font-weight:700}
@@ -324,10 +322,6 @@ h1,h2{margin:0;font-weight:500}
 .rpe button[aria-checked="true"]{background:var(--paper);border-color:var(--line2);box-shadow:var(--shadow);min-height:66px}
 .rpe button[aria-checked="true"] .rn{font-size:32px}
 .rpe button[aria-checked="true"] .rg{white-space:normal;color:var(--ink2)}
-.stp.dur{height:60px;margin-top:14px}
-.stp.dur button{width:60px}
-.stp.dur .sv{line-height:60px;font-size:27px}
-.stp.dur .lab{font-family:var(--sans);font-size:14px;font-weight:700;color:var(--ink2);margin-right:4px;align-self:center;line-height:1}
 /* confirmación */
 .bienres{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 0 4px;border-top:1px solid var(--line)}
 .rampa{display:flex;gap:5px;align-items:flex-end;height:14px;margin-bottom:4px}
@@ -351,7 +345,7 @@ var API = 'https://script.google.com/macros/s/AKfycbxtr5O0mWeqU22FgZxBELldzlQ9qg
 // ===== Estado =====
 // hecho / abierto / anim son solo de pantalla (no se envían a la hoja).
 var S = { entrenador: (function () { try { return localStorage.getItem('chronos-entrenador') || ''; } catch (e) { return ''; } })(), screen: 'cargando', atletas: [], atleta: null, pin: '', error: '', sesion: null, dia: 0, ov: {}, omit: {}, lastre: {}, paso: {}, hecho: {}, t: {}, abierto: null, guardando: false, resumen: null,
-  tmp: {}, cierre: null, editCI: null, recargando: false, pendRes: null };
+  tmp: {}, cierre: null, editCI: null, recargando: false };
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
 if (store('chronos-tema') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
 
@@ -492,10 +486,9 @@ function ponerCheckin(d, v) { var o = checkins(); if (v) o[ciKey(d)] = v; else d
 // Respuestas en curso de cada sesión (S.tmp[id]); la llegada confirmada vive en checkin().
 function tmpDe(d) {
   var id = diaId(d);
-  if (!S.tmp[id]) { var ck = checkin(d); S.tmp[id] = { animoInicio: ck ? ck.animoInicio : null, energia: ck ? ck.energia : null, animoFin: null, rpe: null, minutos: null, minAjust: false }; }
+  if (!S.tmp[id]) { var ck = checkin(d); S.tmp[id] = { animoInicio: ck ? ck.animoInicio : null, energia: ck ? ck.energia : null, animoFin: null, rpe: null }; }
   return S.tmp[id];
 }
-function clampMin(n) { return Math.min(300, Math.max(5, Math.round(n) || 5)); }
 function hora(iso) { var d = new Date(iso); return isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 var FALTA = { animoInicio: 'cómo llegaste', energia: 'tu energía', animoFin: 'cómo terminas', rpe: 'qué tan dura fue' };
 function faltan(t, campos) { return campos.filter(function (c) { return t[c] == null; }); }
@@ -819,41 +812,27 @@ function irAlGuardado() {
 }
 function lunesISO() { var d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 // Abre al instante con lo guardado en el celular y actualiza en segundo plano.
-function refrescarAtletas() {
-  fetch(API + '?accion=atletas').then(function (r) { return r.json(); }).then(function (j) {
-    if (j.error) throw new Error(j.error);
-    var antes = store('chronos-atletas'), nuevo = JSON.stringify(j.atletas || []);
-    S.sinRed = false; S.atletas = j.atletas || []; store('chronos-atletas', nuevo);
-    var ent = j.entrenador || ''; if (ent !== (S.entrenador || '')) { S.entrenador = ent; store('chronos-entrenador', ent || null); if (S.screen === 'nombre') render(); }
-    enviarCola();
-    if (S.atleta && S.screen !== 'nombre' && !S.atletas.some(function (a) { return a.nombre === S.atleta; })) {   // lo quitaron o desactivaron
-      store('chronos-atleta', null); store('chronos-pin', null); S.atleta = null; S.sesion = null; S.screen = 'nombre'; render(); return;
-    }
-    if (S.screen === 'nombre' && antes !== nuevo) render();
-  }).catch(function () { S.sinRed = true; if (S.screen === 'nombre') render(); });
-}
+// La primera vez (sin copia guardada) muestra "Conectando…" hasta que responde la hoja.
 function cargarAtletas() {
-  var copia0 = leerJSON('chronos-atletas', null);
-  if (copia0 && copia0.length) {
-    S.atletas = copia0;
-    if (!irAlGuardado()) { S.screen = 'nombre'; render(); }
-    refrescarAtletas(); return;
-  }
-  S.screen = 'cargando'; S.cargandoTxt = 'Conectando…'; render();
+  var copia = leerJSON('chronos-atletas', null), conCopia = !!(copia && copia.length);
+  function entrar() { if (!irAlGuardado()) { S.screen = 'nombre'; render(); } }
+  if (conCopia) { S.atletas = copia; entrar(); }
+  else { S.screen = 'cargando'; S.cargandoTxt = 'Conectando…'; render(); }
   fetch(API + '?accion=atletas').then(function (r) { return r.json(); }).then(function (j) {
     if (j.error) throw new Error(j.error);
-    S.sinRed = false;
-    S.atletas = j.atletas || [];
-    S.entrenador = j.entrenador || ''; store('chronos-entrenador', S.entrenador || null);
-    store('chronos-atletas', JSON.stringify(S.atletas));
+    var antes = JSON.stringify(S.atletas), ent = j.entrenador || '';
+    S.sinRed = false; S.atletas = j.atletas || []; store('chronos-atletas', JSON.stringify(S.atletas));
+    var cambioEnt = ent !== (S.entrenador || ''); S.entrenador = ent; store('chronos-entrenador', ent || null);
     enviarCola();
-    if (!irAlGuardado()) { S.screen = 'nombre'; render(); }
+    if (!conCopia) return entrar();
+    if (S.atleta && S.screen !== 'nombre' && !S.atletas.some(function (a) { return a.nombre === S.atleta; })) {   // lo quitaron o desactivaron
+      store('chronos-atleta', null); store('chronos-pin', null); S.atleta = null; S.sesion = null; S.screen = 'nombre'; return render();
+    }
+    if (S.screen === 'nombre' && (cambioEnt || antes !== JSON.stringify(S.atletas))) render();
   }).catch(function (e) {
-    var copia = leerJSON('chronos-atletas', null);
-    if (copia && copia.length) {
-      S.sinRed = true; S.atletas = copia;
-      if (!irAlGuardado()) { S.screen = 'nombre'; render(); }
-    } else { S.screen = 'error'; S.error = 'La primera vez necesitas internet para descargar tu plan. Conéctate y vuelve a intentar. (' + e.message + ')'; render(); }
+    S.sinRed = true;
+    if (conCopia) { if (S.screen === 'nombre') render(); return; }
+    S.screen = 'error'; S.error = 'La primera vez necesitas internet para descargar tu plan. Conéctate y vuelve a intentar. (' + e.message + ')'; render();
   });
 }
 function mostrarSesion(j, pin, conservar) {
@@ -933,8 +912,7 @@ function guardar() {
   var vs = vistas(), dia = S.sesion.dias[S.dia];
   if (tiempoMalo(vs)) return;
   var ck = checkin(dia), t = tmpDe(dia);
-  var bienestar = { animoInicio: ck ? ck.animoInicio : t.animoInicio, energia: ck ? ck.energia : t.energia, animoFin: t.animoFin, rpe: t.rpe,
-    inicio: (ck && ck.inicio) || null, fin: new Date().toISOString() };
+  var bienestar = { animoInicio: ck ? ck.animoInicio : t.animoInicio, energia: ck ? ck.energia : t.energia, animoFin: t.animoFin, rpe: t.rpe };
   var registros = vs.map(function (v) {
     if (v.cmj) return { fila: v.e.fila, ejercicio: v.e.ejercicio, omitido: v.omit, cmj: true,
       series: v.times.map(function (x) { return { cm: (x.val != null && !isNaN(x.val)) ? x.val : null }; }) };
@@ -951,7 +929,7 @@ function guardar() {
   });
   // fecha / sesion / diaNombre viajan para poder reubicar el envío si el plan cambia de lugar (el servidor los ignora)
   var item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), accion: 'guardar', nombre: S.atleta, pin: S.pinOk,
-    hoja: S.sesion.hoja, dia: dia.indice, registros: registros, bienestar: bienestar, fecha: dia.fecha, sesion: dia.sesion, diaNombre: dia.nombre, creado: new Date().toISOString() };
+    hoja: S.sesion.hoja, dia: dia.indice, registros: registros, bienestar: bienestar, fecha: dia.fecha, sesion: dia.sesion, diaNombre: dia.nombre };
   // reemplaza un envío pendiente de la misma sesión, si lo había
   guardarCola(cola().filter(function (q) { return !(q.nombre === item.nombre && q.hoja === item.hoja && mismoDia(q.dia, item.dia)); }).concat([item]));
   var resumen = { id: item.id, estado: 'enviando', txt: dia.nombre + ' · ' + dia.fechaTexto + ' · ' + vs.length + (vs.length === 1 ? ' ejercicio' : ' ejercicios') + (cambios.some(function (c) { return !c.run; }) ? '' : ', todo según el plan'), cambios: cambios, carreras: cambios.some(function (c) { return c.run; }), bien: resumenBien(bienestar) };
@@ -976,7 +954,7 @@ function terminar(dia, resumen) {
     var dn = sig && buscarSesion(j, { dia: sig.indice, fecha: sig.fecha, sesion: sig.sesion, registros: sig.ejercicios });
     resumen.sig = dn ? j.dias.indexOf(dn) : null; resumen.dia = null; S.sesion = j;
   } else resumen.dia = dia;
-  S.resumen = resumen; S.cierre = null; S.pendRes = null; S.screen = 'listo'; render();
+  S.resumen = resumen; S.cierre = null; S.screen = 'listo'; render();
 }
 
 // ===== "Recargar plan": vuelve a pedir el plan y reubica lo guardado (cola, borrador, llegada) =====
@@ -1043,11 +1021,6 @@ function recargarPlan() {
     return enviarCola().then(function () {
       S.recargando = false;
       if (S.screen === 'listo' && S.resumen && S.resumen.id) estadoEnvio(S.resumen, null);
-      var p = S.pendRes;
-      if (enSesion && p && !cola().some(function (q) { return q.id === p.id; })) {
-        var d = S.sesion.dias.filter(function (x) { return x.fecha === p.fecha && Number(x.sesion || 1) === Number(p.sesion || 1); })[0];
-        if (d) { S.dia = S.sesion.dias.indexOf(d); return terminar(d, p.resumen, false); }
-      }
       render();
     });
   }).catch(function (e) {
@@ -1165,7 +1138,6 @@ document.addEventListener('click', function (ev) {
     }
     if (a === 'editarCI') { var ck1 = checkin(dd); if (ck1) { tt.animoInicio = ck1.animoInicio; tt.energia = ck1.energia; } S.editCI = diaId(dd); S.error = ''; render(); var s3 = document.querySelector('.scroll'); if (s3) s3.scrollTop = 0; return; }
     if (a === 'volverCierre') { S.cierre = null; S.error = ''; render(); return; }
-    if (a === 'min') { var m0 = tt.minutos || 60; tt.minutos = clampMin(+b.dataset.d > 0 ? Math.floor(m0 / 5) * 5 + 5 : Math.ceil(m0 / 5) * 5 - 5); tt.minAjust = true; var s4 = document.querySelector('.scroll'), y4 = s4 ? s4.scrollTop : 0; render(); var s5 = document.querySelector('.scroll'); if (s5) s5.scrollTop = y4; return; }
     if (a === 'confirmar') {
       if (S.guardando) return;
       var f2 = faltan(tt, (checkin(dd) ? [] : ['animoInicio', 'energia']).concat(['animoFin', 'rpe']));
