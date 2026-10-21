@@ -1,6 +1,6 @@
-// Club Chronos · permite abrir la app sin internet.
+// Club Chronos · abre la app al instante (también sin internet).
 // Los datos de la hoja NO pasan por aquí: la app los guarda en el celular y los envía cuando hay conexión.
-var VERSION = 'chronos-v5';
+var VERSION = 'chronos-v6';
 var ARCHIVOS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
@@ -15,17 +15,14 @@ self.addEventListener('fetch', function (e) {
   var req = e.request, url = new URL(req.url);
   if (req.method !== 'GET') return;
   if (url.hostname.indexOf('script.google') >= 0 || url.hostname.indexOf('googleusercontent') >= 0) return; // la hoja: siempre en vivo
-  if (url.origin === location.origin) {
-    // la app: primero internet (para recibir actualizaciones), si no hay, la copia guardada
-    e.respondWith(fetch(req).then(function (r) {
-      var copia = r.clone(); caches.open(VERSION).then(function (c) { c.put(req, copia); }); return r;
-    }).catch(function () { return caches.match(req).then(function (r) { return r || caches.match('index.html'); }); }));
-    return;
-  }
-  if (url.hostname.indexOf('fonts.') === 0) {
-    // tipografías: copia guardada primero
-    e.respondWith(caches.match(req).then(function (r) {
-      return r || fetch(req).then(function (res) { var copia = res.clone(); caches.open(VERSION).then(function (c) { c.put(req, copia); }); return res; });
+  if (url.origin === location.origin || url.hostname.indexOf('fonts.') === 0) {
+    // copia guardada al instante; en segundo plano se baja la versión nueva para la próxima vez
+    e.respondWith(caches.open(VERSION).then(function (c) {
+      return c.match(req, { ignoreSearch: url.origin === location.origin }).then(function (guardado) {
+        var red = fetch(req).then(function (r) { if (r && r.ok) c.put(req, r.clone()); return r; });
+        if (guardado) { e.waitUntil(red.catch(function () {})); return guardado; }
+        return red.catch(function () { return c.match('index.html'); });
+      });
     }));
   }
 });

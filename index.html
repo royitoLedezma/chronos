@@ -266,6 +266,12 @@ h1,h2{margin:0;font-weight:500}
 .drow .dn2{font-family:var(--serif);font-size:20px;font-weight:600;line-height:1.15;min-width:0}
 .drow .dc{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;flex-shrink:0;max-width:55%}
 .okline{font-size:14px;font-weight:600;color:var(--bronzeT)}
+.okline.env{color:var(--muted);font-weight:500}
+.foco{border:1px solid var(--line);border-left:3px solid var(--bronze);background:var(--paper);border-radius:14px;padding:12px 14px 12px 14px}
+.foco .fk{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--bronzeT)}
+.foco .ft{display:block;font-size:17px;font-weight:650;color:var(--ink);margin-top:2px}
+.foco ul{margin:6px 0 0;padding:0 0 0 18px;font-size:14px;line-height:1.5;color:var(--ink2)}
+.foco li::marker{color:var(--bronze)}
 .done-scr .ghost{margin-top:auto;width:100%}
 
 /* ===== Días con doble sesión ===== */
@@ -430,7 +436,8 @@ function enviarCola() {
   var item = c[0];
   return api(item).then(function () {
     guardarCola(cola().filter(function (x) { return x.id !== item.id; }));
-    enviando = false; if (S.screen !== 'listo') render();
+    enviando = false;
+    if (S.screen !== 'listo') render(); else if (S.resumen && S.resumen.id === item.id) estadoEnvio(S.resumen, null);
     return enviarCola();
   }).catch(function (e) {
     enviando = false;
@@ -489,7 +496,7 @@ var FALTA = { animoInicio: 'cómo llegaste', energia: 'tu energía', animoFin: '
 function faltan(t, campos) { return campos.filter(function (c) { return t[c] == null; }); }
 function listaY(a) { return a.length > 1 ? a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1] : a[0] || ''; }
 function irAPregunta(c) { var el = document.querySelector('[data-q="' + c + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: reduce() ? 'auto' : 'smooth' }); }
-function resumenBien(b) { return { rpe: b.rpe, t1: 'Esfuerzo ' + b.rpe + ' · ' + RPE[b.rpe][0] + ' · ' + b.minutos + ' min', t2: 'Ánimo: ' + ANIMO[b.animoInicio] + ' → ' + ANIMO[b.animoFin] }; }
+function resumenBien(b) { return { rpe: b.rpe, t1: 'Esfuerzo ' + b.rpe + ' · ' + RPE[b.rpe][0], t2: 'Ánimo: ' + ANIMO[b.animoInicio] + ' → ' + ANIMO[b.animoFin] }; }
 
 // Sesiones del día: una sesión ya está registrada si tiene "Realizado" en la hoja, si se envió desde aquí o si espera en la cola.
 function pendienteDe(d) { return cola().some(function (q) { return q.nombre === S.atleta && q.hoja === S.sesion.hoja && mismoDia(q.dia, d.indice); }); }
@@ -503,20 +510,21 @@ function diaPorDefecto(dias) {
 }
 
 // ===== Lógica de ejercicios =====
+function parseCm(x) { var t = String(x == null ? '' : x).trim().replace(',', '.'); if (!t) return null; return /^\d{1,3}(\.\d+)?$/.test(t) ? parseFloat(t) : NaN; }
 function vistaCarrera(e, i, key) {
-  var R = parseR(e.r), nR = R.n || 1, total = (e.s || 1) * nR, obj = parseT(e.seg), omit = !!S.omit[key], times = [];
+  var cmj = e.cmj === true, R = parseR(e.r), nR = cmj ? 1 : (R.n || 1), total = cmj ? (e.s || 3) : (e.s || 1) * nR, obj = cmj ? null : parseT(e.seg), omit = !!S.omit[key], times = [];
   for (var j = 0; j < total; j++) {
-    var raw = S.t[key + '-' + j] || '', val = parseT(raw);
-    times.push({ j: j, sr: Math.floor(j / nR), rr: j % nR, raw: raw, val: val, cmp: cmpT(val, obj) });
+    var raw = S.t[key + '-' + j] || '', val = cmj ? parseCm(raw) : parseT(raw);
+    times.push({ j: j, sr: cmj ? 0 : Math.floor(j / nR), rr: cmj ? j : j % nR, raw: raw, val: val, cmp: cmpT(val, obj) });
   }
   var ok = times.filter(function (x) { return x.val != null && !isNaN(x.val); });
-  var avg = ok.length ? ok.reduce(function (a, x) { return a + x.val; }, 0) / ok.length : null;
-  return { carrera: true, e: e, i: i, key: key, R: R, nR: nR, total: total, obj: obj, omit: omit, times: times, n: ok.length, avg: avg,
+  var avg = !ok.length ? null : cmj ? Math.max.apply(null, ok.map(function (x) { return x.val; })) : ok.reduce(function (a, x) { return a + x.val; }, 0) / ok.length;
+  return { carrera: true, cmj: cmj, e: e, i: i, key: key, R: R, nR: nR, total: total, obj: obj, omit: omit, times: times, n: ok.length, avg: avg,
     acmp: cmpT(avg, obj), invalid: times.some(function (x) { return x.val != null && isNaN(x.val); }), base: null, sets: [], diffs: [], hecho: !omit && !!S.hecho[key] };
 }
 function ejercicioVista(e, i) {
   var key = diaKey(S.sesion.dias[S.dia]) + '-' + i;
-  if (e.carrera === true) return vistaCarrera(e, i, key);
+  if (e.carrera === true || e.cmj === true) return vistaCarrera(e, i, key);
   var R = parseR(e.r), kgPlan = (typeof e.kg === 'number') ? e.kg : null;
   var omit = !!S.omit[key], esLastre = kgPlan == null && !!S.lastre[key];
   var base = kgPlan != null ? kgPlan : (esLastre ? 0 : null);
@@ -547,10 +555,17 @@ function abiertoKey(vs) {
 }
 function planTexto(v) {
   var e = v.e;
+  if (v.cmj) return v.total + ' saltos · anota los cm';
   if (v.carrera) return e.s + ' × ' + esc(e.r) + (e.distancia ? ' · ' + esc(e.distancia) + ' m' : '') + (v.obj != null && !isNaN(v.obj) ? ' · objetivo ' + fmtT(v.obj) + ' s' : '');
   return e.s + ' × ' + esc(e.r) + (v.kgPlan != null ? ' · ' + fmt(v.kgPlan) + ' kg' : (e.kgTexto && String(e.kgTexto).toLowerCase() === 'x' ? ' · sin peso' : '')) + (e.seg ? ' · ' + esc(e.seg) + ' s' : '');
 }
 
+function focoHTML(d) {
+  var metas = (d && d.metas) || [];
+  if (!d || (!d.foco && !metas.length)) return '';
+  return '<section class="foco" aria-label="Objetivo de la sesión"><span class="fk">Objetivo de hoy</span>' + (d.foco ? '<span class="ft">' + esc(d.foco) + '</span>' : '') +
+    (metas.length ? '<ul>' + metas.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>' : '') + '</section>';
+}
 // ===== Pantallas =====
 function escribiendo() { var a = document.activeElement; return !!(a && a.dataset && a.dataset.t); }
 function render(forzar) {
@@ -632,7 +647,7 @@ function vSesion() {
   var n = vs.filter(function (v) { return v.omit || v.diffs.length; }).length;
   var stat = n ? '<b>' + n + '</b>' + (n === 1 ? ' ejercicio distinto al plan' : ' ejercicios distintos al plan') : 'Todo igual al plan';
   return '<div class="screen">' + top +
-    '<main class="scroll">' + avisoCola() + llegada + (ya ? '<div class="notice">Ya registraste esta sesión. Si guardas de nuevo, se reemplaza.</div>' : (hechos ? '' : '<div class="hint">' + (vs.some(function (v) { return v.carrera; }) ? 'Anota el tiempo de cada carrera. En lo demás, cambia solo lo distinto y toca Hecho.' : 'Viene con el plan del entrenador. Cambia solo lo distinto y toca Hecho. Lo que no toques se guarda tal cual.') + '</div>')) + cards + '</main>' +
+    '<main class="scroll">' + avisoCola() + llegada + focoHTML(dia) + (ya ? '<div class="notice">Ya registraste esta sesión. Si guardas de nuevo, se reemplaza.</div>' : (hechos ? '' : '<div class="hint">' + (vs.some(function (v) { return v.carrera && !v.cmj; }) ? 'Anota el tiempo de cada carrera. En lo demás, cambia solo lo distinto y toca Hecho.' : 'Viene con el plan del entrenador. Cambia solo lo distinto y toca Hecho. Lo que no toques se guarda tal cual.') + '</div>')) + cards + '</main>' +
     '<footer class="foot"><div class="err" role="alert">' + esc(S.error) + '</div><div class="fstat">' + stat + '</div><button class="primary" data-act="guardar"' + (S.guardando || !vs.length ? ' disabled' : '') + '>' + (S.guardando ? dial().replace('class="dial"', 'class="dial" style="width:22px;height:22px;color:currentColor"') + 'Guardando…' : 'Guardar sesión') + '</button></footer></div>';
 }
 function escala(titulo, campo, words, val, hints, extra) {
@@ -645,7 +660,7 @@ function escala(titulo, campo, words, val, hints, extra) {
 function vLlegada(dia, vs, ck) {
   var t = tmpDe(dia), editar = !!ck, f = faltan(t, ['animoInicio', 'energia']);
   var prev = '<section class="prev"><h3>En esta sesión</h3>' + vs.map(function (v) { return '<div class="pr"><span class="pn">' + esc(v.e.ejercicio) + '</span><span class="pm">' + planTexto(v) + (v.e.detalle ? ' · ' + esc(v.e.detalle) : '') + '</span></div>'; }).join('') + '</section>';
-  return '<main class="scroll"><div class="ci">' + avisoCola() +
+  return '<main class="scroll"><div class="ci">' + avisoCola() + focoHTML(dia) +
     escala('¿Cómo llegas hoy?', 'animoInicio', ANIMO, t.animoInicio) +
     escala('¿Con cuánta energía?', 'energia', ENERGIA, t.energia, ENERGIA_TXT) + prev + '</div></main>' +
     '<footer class="foot"><div class="err" role="alert">' + esc(S.error) + '</div><div class="fstat">' + (editar ? 'Empezaste a las <b>' + hora(ck.inicio) + '</b>' : f.length ? 'Dos toques y empiezas' : 'Al empezar se anota la hora de inicio') + '</div>' +
@@ -662,10 +677,8 @@ function vCierre(dia) {
     h += '<button role="radio" aria-checked="' + (t.rpe === n) + '" class="' + (t.rpe != null && n > t.rpe ? 'above' : '') + '" style="--r:var(--r' + n + ')" data-act="bien" data-f="rpe" data-v="' + n + '"><span class="bar"></span><span class="rn">' + n + '</span><span class="rx"><span class="rl">' + esc(x[0]) + '</span><span class="rg">' + esc(x[1]) + '</span></span></button>';
   });
   h += '</div></section>';
-  h += '<section class="q" data-q="min"><div class="stp dur"><button data-act="min" data-d="-1" aria-label="Restar 5 minutos">' + I.minus + '</button><span class="sv" aria-live="polite"><span class="lab">Duración:&nbsp;</span>' + t.minutos + '<span class="suf">&nbsp;min</span></span><button data-act="min" data-d="1" aria-label="Sumar 5 minutos">' + I.plus + '</button></div>' +
-    '<p class="qsub">' + (ck && ck.inicio ? 'Desde que empezaste, a las ' + hora(ck.inicio) + '. Ajusta si hace falta.' : 'No se anotó la hora de inicio. Ajusta a lo que duró.') + '</p></section>';
   h += '</div></main>';
-  var stat = f.length ? 'Falta: ' + listaY(f.map(function (c) { return FALTA[c]; })) : 'Esfuerzo <b>' + t.rpe + '</b> · ' + esc(RPE[t.rpe][0]) + ' · ' + t.minutos + ' min';
+  var stat = f.length ? 'Falta: ' + listaY(f.map(function (c) { return FALTA[c]; })) : 'Esfuerzo <b>' + t.rpe + '</b> · ' + esc(RPE[t.rpe][0]);
   return '<div class="screen">' + head + h + '<footer class="foot"><div class="err" role="alert">' + esc(S.error) + '</div><div class="fstat">' + stat + '</div><button class="primary" data-act="confirmar"' + (S.guardando ? ' disabled' : '') + '>' +
     (S.guardando ? dial().replace('class="dial"', 'class="dial" style="width:22px;height:22px;color:currentColor"') + 'Guardando…' : 'Guardar sesión') + '</button></footer></div>';
 }
@@ -673,6 +686,7 @@ function d1Tipo(d) { return d.tipo && String(d.tipo).trim(); }
 function tipoHTML(d, solo) { var t = d1Tipo(d); if (!t) return ''; return (solo ? '' : ' · ') + (/pista/i.test(t) ? I.pista : /gim|gym/i.test(t) ? I.gym : '') + esc(t); }
 function chips(diffs) { return diffs.map(function (d) { return '<span class="chg ' + d.cls + '">' + esc(d.t) + '</span>'; }).join(''); }
 function avgChip(v) {
+  if (v.cmj) return v.n ? '<span class="chg ok">mejor ' + fmt(v.avg) + ' cm</span>' : '<span class="chg nt">Sin saltos</span>';
   if (!v.n) return '<span class="chg nt">Sin tiempos</span>';
   var c = v.acmp, pre = v.n < v.total ? v.n + ' de ' + v.total + ' · ' : '';
   return '<span class="chg ' + (c ? c.cls : 'nt') + '">' + pre + 'prom. ' + fmtT(v.avg) + ' s' + (c ? ' · ' + (c.cls === 'ok' ? I.check : c.t) : '') + '</span>';
@@ -683,16 +697,17 @@ function cmpHTML(x) {
   return { cls: x.cmp.cls, h: x.cmp.cls === 'ok' ? I.check : esc(x.cmp.t) };
 }
 function avgHTML(v) {
+  if (v.cmj) return v.n ? 'Mejor <b>' + fmt(v.avg) + '</b> cm' : 'Anota cuántos cm saltaste';
   if (!v.n) return v.obj != null && !isNaN(v.obj) ? 'Objetivo <b>' + fmtT(v.obj) + '</b> s' : 'Sin objetivo';
   return 'Prom. <b>' + fmtT(v.avg) + '</b> s' + (v.acmp ? ' <span class="chg ' + v.acmp.cls + '">' + (v.acmp.cls === 'ok' ? I.check + ' objetivo' : v.acmp.t) + '</span>' : '');
 }
 function cardCarrera(v, open) {
-  var h = '<div class="body"><div class="runs">', multi = (v.e.s || 1) > 1;
-  for (var sr = 0; sr < (v.e.s || 1); sr++) {
+  var h = '<div class="body"><div class="runs">', multi = !v.cmj && (v.e.s || 1) > 1, grupos = v.cmj ? 1 : (v.e.s || 1);
+  for (var sr = 0; sr < grupos; sr++) {
     h += '<div class="rgrid">';
     v.times.filter(function (x) { return x.sr === sr; }).forEach(function (x) {
-      var id = v.key + '-' + x.j, c = cmpHTML(x), lab = multi ? 'S' + (x.sr + 1) + '·R' + (x.rr + 1) : 'Rep ' + (x.rr + 1);
-      h += '<div class="rt ' + c.cls + '" data-rt="' + id + '"><label for="t-' + id + '">' + lab + '</label><input id="t-' + id + '" data-t="' + id + '" data-key="' + v.key + '" data-j="' + x.j + '" type="text" inputmode="decimal" enterkeyhint="' + (x.j === v.total - 1 ? 'done' : 'next') + '" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="seg" value="' + esc(x.raw) + '" aria-describedby="c-' + id + '"><span class="cmp ' + c.cls + '" id="c-' + id + '" data-cmp="' + id + '" aria-live="polite">' + c.h + '</span></div>';
+      var id = v.key + '-' + x.j, c = cmpHTML(x), lab = v.cmj ? 'Salto ' + (x.j + 1) : multi ? 'S' + (x.sr + 1) + '·R' + (x.rr + 1) : 'Rep ' + (x.rr + 1);
+      h += '<div class="rt ' + c.cls + '" data-rt="' + id + '"><label for="t-' + id + '">' + lab + '</label><input id="t-' + id + '" data-t="' + id + '" data-key="' + v.key + '" data-j="' + x.j + '" type="text" inputmode="decimal" enterkeyhint="' + (x.j === v.total - 1 ? 'done' : 'next') + '" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + (v.cmj ? 'cm' : 'seg') + '" value="' + esc(x.raw) + '" aria-describedby="c-' + id + '"><span class="cmp ' + c.cls + '" id="c-' + id + '" data-cmp="' + id + '" aria-live="polite">' + c.h + '</span></div>';
     });
     h += '</div>';
   }
@@ -755,7 +770,11 @@ function vListo() {
   var items = r.cambios.map(function (c) { return '<div class="drow"><span class="dn2">' + esc(c.ej) + '</span><span class="dc">' + (c.html ? c.html : c.diffs ? chips(c.diffs) : '<span class="chg ' + c.cls + '">' + esc(c.t) + '</span>') + '</span></div>'; }).join('');
   return '<div class="screen"><div class="done-scr"><svg class="seal" viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true"><circle class="ring" cx="50" cy="50" r="45" stroke-width="1.2" transform="rotate(-90 50 50)"/><path class="ok" d="M33 51l11 11 23-24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
     '<h1>Sesión guardada</h1><div class="msg">' + esc(r.txt) + '</div>' +
-    (r.pendiente ? '<div class="notice">Estás sin internet. La sesión quedó guardada en tu celular y se enviará sola cuando vuelva la conexión. No borres la app ni los datos del navegador.</div>' : '<div class="okline">Anotado en la hoja del entrenador</div>') +
+    ({ enviando: '<div class="okline env" role="status">Guardada en tu celular · enviando a la hoja…</div>',
+       ok: '<div class="okline" role="status">Anotado en la hoja del entrenador</div>',
+       pendiente: '<div class="notice">Estás sin internet. La sesión quedó guardada en tu celular y se enviará sola cuando vuelva la conexión. No borres la app ni los datos del navegador.</div>',
+       plan: '<div class="notice">' + esc(r.msg) + ' Tus datos siguen guardados en el celular.</div><button class="ghost" data-act="recargar">' + (S.recargando ? 'Cargando…' : 'Recargar plan y enviar') + '</button>',
+       error: '<div class="notice">No se pudo anotar todavía: ' + esc(r.msg) + ' Queda guardada en tu celular y se volverá a intentar.</div>' })[r.estado || 'ok'] +
     (r.bien ? '<div class="bienres"><div class="rampa" aria-hidden="true">' + RPE.map(function (x, n) { return '<i' + (n <= r.bien.rpe ? ' class="on" style="--r:var(--r' + n + ')"' : '') + '></i>'; }).join('') + '</div><div class="bt">' + esc(r.bien.t1) + '</div><div class="bs">' + esc(r.bien.t2) + '</div></div>' : '') +
     (items ? '<div class="diffs"><div class="dt">' + (r.carreras ? 'Tus tiempos y lo que cambió' : 'Lo que cambió respecto al plan') + '</div>' + items + '</div>' : '') +
     (r.sig != null && S.sesion && S.sesion.dias[r.sig] ? '<button class="primary" data-act="siguiente">Seguir con ' + esc(etiquetaLarga(S.sesion.dias[r.sig])) + '</button>' : '') +
@@ -768,7 +787,27 @@ function irAlGuardado() {
   if (guardado && pin && S.atletas.some(function (a) { return a.nombre === guardado; })) { S.atleta = guardado; abrirSesion(pin); return true; }
   return false;
 }
+function lunesISO() { var d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+// Abre al instante con lo guardado en el celular y actualiza en segundo plano.
+function refrescarAtletas() {
+  fetch(API + '?accion=atletas').then(function (r) { return r.json(); }).then(function (j) {
+    if (j.error) throw new Error(j.error);
+    var antes = store('chronos-atletas'), nuevo = JSON.stringify(j.atletas || []);
+    S.sinRed = false; S.atletas = j.atletas || []; store('chronos-atletas', nuevo);
+    enviarCola();
+    if (S.atleta && S.screen !== 'nombre' && !S.atletas.some(function (a) { return a.nombre === S.atleta; })) {   // lo quitaron o desactivaron
+      store('chronos-atleta', null); store('chronos-pin', null); S.atleta = null; S.sesion = null; S.screen = 'nombre'; render(); return;
+    }
+    if (S.screen === 'nombre' && antes !== nuevo) render();
+  }).catch(function () { S.sinRed = true; if (S.screen === 'nombre') render(); });
+}
 function cargarAtletas() {
+  var copia0 = leerJSON('chronos-atletas', null);
+  if (copia0 && copia0.length) {
+    S.atletas = copia0;
+    if (!irAlGuardado()) { S.screen = 'nombre'; render(); }
+    refrescarAtletas(); return;
+  }
   S.screen = 'cargando'; S.cargandoTxt = 'Conectando…'; render();
   fetch(API + '?accion=atletas').then(function (r) { return r.json(); }).then(function (j) {
     if (j.error) throw new Error(j.error);
@@ -797,7 +836,26 @@ function mostrarSesion(j, pin, conservar) {
   }
   S.screen = 'sesion'; render();
 }
+function refrescarSesion(nombre, pin) {
+  api({ accion: 'sesion', nombre: nombre, pin: pin }).then(function (j) {
+    S.sinRed = false;
+    var antes = store('chronos-sesion-' + nombre), nuevo = JSON.stringify(j);
+    store('chronos-sesion-' + nombre, nuevo);
+    if (S.atleta !== nombre || S.screen !== 'sesion' || antes === nuevo) { if (S.screen === 'sesion') render(); return; }
+    if (S.cierre || S.guardando || escribiendo()) { S.planNuevo = j; return; }   // se aplica al terminar
+    reubicarPantalla(S.sesion, j); mostrarSesion(j, pin, true);
+  }).catch(function (e) {
+    if (e.red) { S.sinRed = true; if (S.screen === 'sesion') render(); return; }
+    if (S.atleta !== nombre) return;
+    store('chronos-pin', null); S.screen = 'pin'; S.pin = ''; S.error = e.message; render();   // p. ej. le cambiaron el PIN
+  });
+}
 function abrirSesion(pin) {
+  var copia0 = leerJSON('chronos-sesion-' + S.atleta, null), lun = lunesISO();
+  var vigente = copia0 && (copia0.dias || []).some(function (d) { return d.fecha && d.fecha >= lun; });
+  if (vigente && store('chronos-pin') === pin && store('chronos-atleta') === S.atleta) {
+    mostrarSesion(copia0, pin); refrescarSesion(S.atleta, pin); return;
+  }
   S.screen = 'cargando'; S.cargandoTxt = 'Cargando tu sesión…'; S.error = ''; render();
   api({ accion: 'sesion', nombre: S.atleta, pin: pin }).then(function (j) {
     S.sinRed = false;
@@ -816,15 +874,13 @@ function abrirSesion(pin) {
 function tiempoMalo(vs) {
   var malo = vs.filter(function (v) { return v.carrera && !v.omit && v.invalid; })[0];
   if (!malo) return false;
-  S.cierre = null; S.error = 'Hay un tiempo que no se entiende en «' + malo.e.ejercicio + '». Escríbelo como 49,6 o 1:05,3.'; S.abierto = malo.key; S.hecho[malo.key] = false; render(true); irATarjeta(malo.key);
+  S.cierre = null; S.error = malo.cmj ? 'Hay un salto que no se entiende en «' + malo.e.ejercicio + '». Escribe solo los cm, por ejemplo 34,5.' : 'Hay un tiempo que no se entiende en «' + malo.e.ejercicio + '». Escríbelo como 49,6 o 1:05,3.'; S.abierto = malo.key; S.hecho[malo.key] = false; render(true); irATarjeta(malo.key);
   return true;
 }
-// "Guardar sesión" abre primero el cierre (ánimo final, esfuerzo, duración)
+// "Guardar sesión" abre primero el cierre (ánimo final y esfuerzo)
 function abrirCierre() {
   var vs = vistas(), dia = S.sesion.dias[S.dia];
   if (!vs.length || tiempoMalo(vs)) return;
-  var t = tmpDe(dia), ck = checkin(dia), ini = ck && Date.parse(ck.inicio);
-  if (!t.minAjust) t.minutos = ini ? clampMin((Date.now() - ini) / 60000) : 60;
   S.cierre = diaId(dia); S.error = ''; render(true);
   var sc = document.querySelector('.scroll'); if (sc) sc.scrollTop = 0;
 }
@@ -845,9 +901,11 @@ function guardar() {
   var vs = vistas(), dia = S.sesion.dias[S.dia];
   if (tiempoMalo(vs)) return;
   var ck = checkin(dia), t = tmpDe(dia);
-  var bienestar = { animoInicio: ck ? ck.animoInicio : t.animoInicio, energia: ck ? ck.energia : t.energia, animoFin: t.animoFin, rpe: t.rpe, minutos: t.minutos,
+  var bienestar = { animoInicio: ck ? ck.animoInicio : t.animoInicio, energia: ck ? ck.energia : t.energia, animoFin: t.animoFin, rpe: t.rpe,
     inicio: (ck && ck.inicio) || null, fin: new Date().toISOString() };
   var registros = vs.map(function (v) {
+    if (v.cmj) return { fila: v.e.fila, ejercicio: v.e.ejercicio, omitido: v.omit, cmj: true,
+      series: v.times.map(function (x) { return { cm: (x.val != null && !isNaN(x.val)) ? x.val : null }; }) };
     if (v.carrera) return { fila: v.e.fila, ejercicio: v.e.ejercicio, omitido: v.omit, carrera: true,
       series: v.times.map(function (x) { return { tiempo: (x.val != null && !isNaN(x.val)) ? Math.round(x.val * 1000) / 1000 : null }; }) };
     return { fila: v.e.fila, ejercicio: v.e.ejercicio, omitido: v.omit,
@@ -864,27 +922,28 @@ function guardar() {
     hoja: S.sesion.hoja, dia: dia.indice, registros: registros, bienestar: bienestar, fecha: dia.fecha, sesion: dia.sesion, diaNombre: dia.nombre, creado: new Date().toISOString() };
   // reemplaza un envío pendiente de la misma sesión, si lo había
   guardarCola(cola().filter(function (q) { return !(q.nombre === item.nombre && q.hoja === item.hoja && mismoDia(q.dia, item.dia)); }).concat([item]));
-  var resumen = { txt: dia.nombre + ' · ' + dia.fechaTexto + ' · ' + vs.length + (vs.length === 1 ? ' ejercicio' : ' ejercicios') + (cambios.some(function (c) { return !c.run; }) ? '' : ', todo según el plan'), cambios: cambios, carreras: cambios.some(function (c) { return c.run; }), bien: resumenBien(bienestar) };
-  S.guardando = true; S.error = ''; render(true);
-  enviarCola().then(function () {
-    var q = cola().filter(function (x) { return x.id === item.id; })[0];
-    S.guardando = false;
-    if (q && q.planViejo) {   // el plan se movió en la hoja: se queda todo (cola, borrador, llegada) hasta "Recargar plan"
-      S.cierre = null; S.pendRes = { id: item.id, resumen: resumen, fecha: dia.fecha, sesion: dia.sesion }; render(true);
-      var sc = document.querySelector('.scroll'); if (sc) sc.scrollTop = 0;
-      return;
-    }
-    if (q && q.ultimoError) {   // otro error del servidor: no se envía; los datos siguen en pantalla
-      guardarCola(cola().filter(function (x) { return x.id !== item.id; }));
-      S.cierre = null; S.error = q.ultimoError; render(true); return;
-    }
-    terminar(dia, resumen, !!q);
-  });
+  var resumen = { id: item.id, estado: 'enviando', txt: dia.nombre + ' · ' + dia.fechaTexto + ' · ' + vs.length + (vs.length === 1 ? ' ejercicio' : ' ejercicios') + (cambios.some(function (c) { return !c.run; }) ? '' : ', todo según el plan'), cambios: cambios, carreras: cambios.some(function (c) { return c.run; }), bien: resumenBien(bienestar) };
+  // Al instante: la sesión ya está a salvo en el celular (cola). El envío a la hoja sigue en segundo plano.
+  S.error = '';
+  terminar(dia, resumen);
+  enviarCola().then(function () { estadoEnvio(resumen, dia); });
 }
-function terminar(dia, resumen, pendiente) {
-  if (!pendiente) { S.sinRed = false; dia.guardadoLocal = true; cacheSesion(); }
+function estadoEnvio(resumen, dia) {
+  var q = cola().filter(function (x) { return x.id === resumen.id; })[0];
+  resumen.estado = !q ? 'ok' : q.planViejo ? 'plan' : q.ultimoError ? 'error' : 'pendiente';
+  resumen.msg = q ? q.ultimoError || '' : '';
+  dia = dia || resumen.dia;
+  if (!q && dia) { S.sinRed = false; dia.guardadoLocal = true; cacheSesion(); }
+  if (S.screen === 'listo' && S.resumen === resumen) render();
+}
+function terminar(dia, resumen) {
   limpiarDia(dia);
-  resumen.pendiente = pendiente; resumen.sig = otraSesion(dia);
+  resumen.sig = otraSesion(dia);
+  if (S.planNuevo) {   // llegó un plan nuevo mientras guardaba: se usa desde ahora
+    var j = S.planNuevo, sig = resumen.sig != null ? S.sesion.dias[resumen.sig] : null; S.planNuevo = null;
+    var dn = sig && buscarSesion(j, { dia: sig.indice, fecha: sig.fecha, sesion: sig.sesion, registros: sig.ejercicios });
+    resumen.sig = dn ? j.dias.indexOf(dn) : null; resumen.dia = null; S.sesion = j;
+  } else resumen.dia = dia;
   S.resumen = resumen; S.cierre = null; S.pendRes = null; S.screen = 'listo'; render();
 }
 
@@ -951,6 +1010,7 @@ function recargarPlan() {
     if (enSesion) { reubicarPantalla(S.sesion, j); mostrarSesion(j, pin, true); }
     return enviarCola().then(function () {
       S.recargando = false;
+      if (S.screen === 'listo' && S.resumen && S.resumen.id) estadoEnvio(S.resumen, null);
       var p = S.pendRes;
       if (enSesion && p && !cola().some(function (q) { return q.id === p.id; })) {
         var d = S.sesion.dias.filter(function (x) { return x.fecha === p.fecha && Number(x.sesion || 1) === Number(p.sesion || 1); })[0];
